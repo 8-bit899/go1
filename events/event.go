@@ -58,12 +58,12 @@ func (e *Event) UpdateEvent(title string, data string, priority Priority) error 
 	e.Title = title
 	return nil
 }
-func (e *Event) AddReminder(message string, data string) {
+func (e *Event) AddReminder(message string, data string, notify func(string)) {
 	at, err := IsValidDate(data)
 	if err != nil {
 		fmt.Println("проблемы с датой в напоминании")
 	}
-	e.Reminder = reminder.NewReminder(message, at)
+	e.Reminder = reminder.NewReminder(message, at, notify)
 	e.Reminder.Start()
 }
 func (e *Event) RemoveReminder() {

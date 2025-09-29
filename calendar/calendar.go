@@ -85,7 +85,7 @@ func (c *Calendar) DeleteEvent(key string) {
 func (c *Calendar) SetEventReminder(key string, msg string, at string) {
 	_, ok := c.calendarEvents[key]
 	if ok {
-		c.calendarEvents[key].AddReminder(msg, at)
+		c.calendarEvents[key].AddReminder(msg, at, c.Notify)
 		c.Notify("напоминание добавлено")
 	} else {
 		c.Notify(events.EventNotFoundMessage)

@@ -20,6 +20,7 @@ func NewReminder(message string, at time.Time, notify func(string)) *Reminder {
 		At:      at,
 		Sent:    false,
 		Notify:  notify,
+		Timer:   nil,
 	}
 }
 func (r *Reminder) Send() {
@@ -28,7 +29,6 @@ func (r *Reminder) Send() {
 		return
 	}
 	r.Notify("Reminder: " + r.Message)
-	fmt.Println("Reminder:", r.Message, " at", r.At.String()) //
 	r.Sent = true
 }
 func (r *Reminder) Start() {
@@ -41,7 +41,7 @@ func (r *Reminder) Start() {
 
 }
 func (r *Reminder) Stop() {
-	if r.Sent {
+	if r.Sent && r.Timer != nil {
 		r.Timer.Stop()
 	}
 
