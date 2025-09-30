@@ -2,6 +2,8 @@ package calendar
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 
 	"github.com/io893/calendar_app/events"
 	"github.com/io893/calendar_app/storage"
@@ -82,21 +84,30 @@ func (c *Calendar) DeleteEvent(key string) {
 		c.Notify(events.EventNotFoundMessage)
 	}
 }
-func (c *Calendar) SetEventReminder(key string, msg string, at string) {
+func (c *Calendar) SetEventReminder(key string, msg string, at string) error {
 	_, ok := c.calendarEvents[key]
 	if ok {
-		c.calendarEvents[key].AddReminder(msg, at, c.Notify)
-		c.Notify("напоминание добавлено")
-	} else {
-		c.Notify(events.EventNotFoundMessage)
+		err := c.calendarEvents[key].AddReminder(msg, at, c.Notify)
+		if err != nil {
+			return err
+		}
+		c.Notify(events.ReminderAdd)
+		return nil
 	}
-}
-func (c *Calendar) CancelEventReminder(key string) {
-	_, ok := c.calendarEvents[key]
-	if ok {
-		c.calendarEvents[key].RemoveReminder()
-	}
+	return fmt.Errorf(events.ReminderNotAdd+"%w", errors.New(events.EventNotFoundMessage))
 
+}
+func (c *Calendar) CancelEventReminder(key string) error {
+	_, ok := c.calendarEvents[key]
+	if ok {
+		err := c.calendarEvents[key].RemoveReminder()
+		if err != nil {
+			return err
+		}
+		c.Notify(events.ReminderRemov)
+		return nil
+	}
+	return fmt.Errorf(events.ReminderCannotDeleted+"%w", errors.New(events.EventNotFoundMessage))
 }
 func (c *Calendar) Notify(msg string) {
 	c.Notification <- msg

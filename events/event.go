@@ -23,14 +23,14 @@ func getNextID() string {
 func NewEvent(title string, dateStr string, priority Priority) (*Event, error) {
 	t, err := IsValidDate(dateStr)
 	if err != nil {
-		return &Event{}, err
+		return &Event{}, fmt.Errorf(EvenNotCreated+"%w", err)
 	}
 	if !IsValidTitle(title) {
-		return &Event{}, errors.New(InvalidHeaderFormatMessage)
+		return &Event{}, fmt.Errorf(EvenNotCreated+"%w", errors.New(InvalidHeaderFormatMessage))
 	}
 	err = priority.Validate()
 	if err != nil {
-		return &Event{}, err
+		return &Event{}, fmt.Errorf(EvenNotCreated+"%w", err)
 	}
 	return &Event{
 		ID:       getNextID(),
@@ -58,19 +58,22 @@ func (e *Event) UpdateEvent(title string, data string, priority Priority) error 
 	e.Title = title
 	return nil
 }
-func (e *Event) AddReminder(message string, data string, notify func(string)) {
+func (e *Event) AddReminder(message string, data string, notify func(string)) error {
 	at, err := IsValidDate(data)
 	if err != nil {
-		fmt.Println("проблемы с датой в напоминании")
+		return fmt.Errorf(ReminderNotAdd+"%w", err)
+
 	}
 	e.Reminder = reminder.NewReminder(message, at, notify)
 	e.Reminder.Start()
+	return nil
 }
-func (e *Event) RemoveReminder() {
+func (e *Event) RemoveReminder() error {
 	if !e.Reminder.Sent {
-		fmt.Println("нельзя удалить то чего нет. уведомление в событии отсутствует. ")
+		return fmt.Errorf(ReminderCannotDeleted+"%w", errors.New(NoReminder))
+
 	}
 	e.Reminder.Stop()
 	e.Reminder = nil
-	fmt.Println("уведомление удалено")
+	return nil
 }

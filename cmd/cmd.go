@@ -137,14 +137,21 @@ func (c *Cmd) executor(input string) {
 		key := parts[1]
 		msg := parts[2]
 		date := parts[3]
-		c.calendar.SetEventReminder(key, msg, date)
+		err := c.calendar.SetEventReminder(key, msg, date)
+		if err != nil {
+			c.calendar.Notify(err.Error())
+		}
+
 	case "reminderRmv":
 		if len(parts) < 2 {
 			c.calendar.Notify("Формат: Reminder \"id события\"")
 			return
 		}
 		key := parts[1]
-		c.calendar.CancelEventReminder(key)
+		err := c.calendar.CancelEventReminder(key)
+		if err != nil {
+			c.calendar.Notify(err.Error())
+		}
 	case "help":
 
 		c.calendar.Notify("add - Добавить событие.\n Для добавления события введите команду в формате: add \"название события\" \"дата и время\" \"приоритет\" ")
@@ -183,12 +190,7 @@ func (c *Cmd) exitChecker(in string, breakline bool) bool {
 		return false
 	}
 	input := strings.TrimSpace(in)
-	if input == "exit" {
-
-		return true
-	}
-
-	return false
+	return input == "exit"
 }
 func (c *Cmd) completer(d prompt.Document) []prompt.Suggest {
 	suggestions := []prompt.Suggest{
