@@ -10,11 +10,11 @@ import (
 )
 
 type Event struct {
-	ID       string
-	Title    string
-	StartAt  time.Time
-	Priority Priority
-	Reminder *reminder.Reminder
+	ID       string             `json:"id"`
+	Title    string             `json:"title"`
+	StartAt  time.Time          `json:"start_at"`
+	Priority Priority           `json:"priority"`
+	Reminder *reminder.Reminder `json:"remider"`
 }
 
 func getNextID() string {
