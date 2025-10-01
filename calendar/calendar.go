@@ -50,38 +50,38 @@ func (c *Calendar) AddEvent(title string, date string, priority events.Priority)
 		return *e, err
 	}
 	c.calendarEvents[e.ID] = e
-	c.Notify(events.EventAddedMessage)
+
 	return *e, nil
 }
-func stringOfThree(key string, title string, date string) string {
-	return key + ": " + title + " >> " + date
+func stringOfThree(key string, title string, date string, priority string) string {
+	return key + ": " + title + " >> " + priority + " >> " + date
 
 }
 func (c *Calendar) ShowEvents() {
 	for _, e := range c.calendarEvents {
-		c.Notify(stringOfThree(e.ID, e.Title, e.StartAt.String()))
+		c.Notify(stringOfThree(e.ID, e.Title, e.StartAt.String(), string(e.Priority)))
 	}
 }
-func (c *Calendar) EditEvent(key string, title string, date string, priority events.Priority) {
+func (c *Calendar) EditEvent(key string, title string, date string, priority events.Priority) error {
 	_, ok := c.calendarEvents[key]
 	if ok {
 		err := c.calendarEvents[key].UpdateEvent(title, date, priority)
 		if err != nil {
-			c.Notify(events.ErrorUpdatingEventMessage)
-			return
+			return fmt.Errorf(events.ErrorUpdatingEventMessage+" %w", err)
+
 		}
-		c.Notify(events.EventUpdatedMessage)
+		return nil
 	} else {
-		c.Notify(events.EventNotFoundMessage)
+		return errors.New(events.EventNotFoundMessage)
 	}
 }
-func (c *Calendar) DeleteEvent(key string) {
+func (c *Calendar) DeleteEvent(key string) error {
 	_, ok := c.calendarEvents[key]
 	if ok {
 		delete(c.calendarEvents, key)
-		c.Notify(events.EventDeletedMessage)
+		return nil //events.EventDeletedMessage)
 	} else {
-		c.Notify(events.EventNotFoundMessage)
+		return errors.New(events.EventNotFoundMessage)
 	}
 }
 func (c *Calendar) SetEventReminder(key string, msg string, at string) error {

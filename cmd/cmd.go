@@ -96,115 +96,201 @@ func (c *Cmd) executor(input string) {
 	}
 
 	cmd := strings.ToLower(parts[0])
+	c.HandleCommand(cmd, parts)
+}
+
+func (c *Cmd) notifyUserAndLogError(message string) {
+	c.calendar.Notify(message)
+	c.logger.Error(message)
+}
+
+func (c *Cmd) notifyUserAndLogInfo(message string) {
+	c.calendar.Notify(message)
+	c.logger.Info(message)
+}
+
+func (c *Cmd) validateArgs(parts []string, requiredCount int, format string) bool {
+	if len(parts) < requiredCount {
+		errMsg := fmt.Sprintf("Неверное количество аргументов. Формат: %s", format)
+		c.notifyUserAndLogError(errMsg)
+		return false
+	}
+	return true
+}
+
+func (c *Cmd) handleEventAdd(operation string, parts []string) {
+
+	if !c.validateArgs(parts, 4, fmt.Sprintf("%s \"название\" \"дата\" \"приоритет\"", operation)) {
+		return
+	}
+
+	title := parts[1]
+	date := parts[2]
+	priority := events.Priority(parts[3])
+
+	e, err := c.calendar.AddEvent(title, date, priority)
+	if err != nil {
+		c.notifyUserAndLogError(fmt.Sprintf("Ошибка %s: %v", operation, err))
+	} else {
+		c.notifyUserAndLogInfo(fmt.Sprintf("Событие '%s' %s", e.Title, getOperationPastTense(operation)))
+	}
+}
+
+func (c *Cmd) handleEventUpdate(parts []string) {
+	if !c.validateArgs(parts, 5, "update \"id\" \"название\" \"дата\" \"приоритет\"") {
+		return
+	}
+
+	key := parts[1]
+	title := parts[2]
+	date := parts[3]
+	priority := events.Priority(parts[4])
+
+	err := c.calendar.EditEvent(key, title, date, priority)
+	if err != nil {
+		c.notifyUserAndLogError(fmt.Sprintf("Ошибка обновления: %v", err))
+	} else {
+		c.notifyUserAndLogInfo(fmt.Sprintf("Событие с ID %s обновлено", key))
+	}
+}
+
+func (c *Cmd) handleEventRemoval(parts []string) {
+	if !c.validateArgs(parts, 2, "remove \"id события\"") {
+		return
+	}
+
+	key := parts[1]
+	err := c.calendar.DeleteEvent(key)
+	if err != nil {
+		c.notifyUserAndLogError(fmt.Sprintf("Ошибка удаления: %v", err))
+	} else {
+		c.notifyUserAndLogInfo(fmt.Sprintf("Событие с ID %s удалено", key))
+	}
+}
+
+func (c *Cmd) handleReminderSet(parts []string) {
+	if !c.validateArgs(parts, 4, "reminder \"id\" \"сообщение\" \"дата\"") {
+		return
+	}
+
+	key := parts[1]
+	msg := parts[2]
+	date := parts[3]
+
+	err := c.calendar.SetEventReminder(key, msg, date)
+	if err != nil {
+		c.notifyUserAndLogError(fmt.Sprintf("Ошибка установки напоминания: %v", err))
+	} else {
+		c.notifyUserAndLogInfo(fmt.Sprintf("Напоминание для события %s установлено", key))
+	}
+}
+
+func (c *Cmd) handleReminderRemoval(parts []string) {
+	if !c.validateArgs(parts, 2, "reminderRmv \"id события\"") {
+		return
+	}
+
+	key := parts[1]
+	err := c.calendar.CancelEventReminder(key)
+	if err != nil {
+		c.notifyUserAndLogError(fmt.Sprintf("Ошибка удаления напоминания: %v", err))
+	} else {
+		c.notifyUserAndLogInfo(fmt.Sprintf("Напоминание для события %s удалено", key))
+	}
+}
+
+func (c *Cmd) showHelp() {
+	helpCommands := map[string]string{
+		"add":         "Добавить событие. Формат: add \"название\" \"дата\" \"приоритет\"",
+		"list":        "Выводит список всех событий календаря. Без параметров.",
+		"remove":      "Удалить событие. Формат: remove \"id события\"",
+		"update":      "Изменить событие. Формат: update \"id\" \"название\" \"дата\" \"приоритет\"",
+		"reminder":    "Установить уведомление. Формат: reminder \"id\" \"сообщение\" \"дата\"",
+		"reminderRmv": "Удалить уведомление. Формат: reminderRmv \"id события\"",
+		"log":         "Выводит действия пользователя",
+		"exit":        "Выйти из программы. Без параметров",
+		"help":        "Показать справку",
+	}
+
+	for cmd, desc := range helpCommands {
+		c.calendar.Notify(fmt.Sprintf("%s - %s", cmd, desc))
+	}
+	c.logger.Info("Пользователь запросил справку")
+}
+
+func (c *Cmd) handleExit() {
+	err := c.log.Logsave()
+	if err != nil {
+		c.logger.Error(fmt.Sprintf("Ошибка сохранения лога: %v", err))
+		fmt.Println("Ошибка сохранения лога:", err)
+	}
+	err = c.calendar.Save()
+	if err != nil {
+		c.logger.Error(fmt.Sprintf("Ошибка сохранения календаря: %v", err))
+	}
+
+	c.calendar.CloseNotify()
+	c.logger.Info("Приложение завершило работу")
+}
+
+func getOperationPastTense(operation string) string {
+	tenses := map[string]string{
+		"add":    "добавлено",
+		"update": "обновлено",
+		"remove": "удалено",
+	}
+	if tense, ok := tenses[operation]; ok {
+		return tense
+	}
+	return "обработано"
+}
+
+func (c *Cmd) HandleCommand(cmd string, parts []string) {
+	c.logger.Info(fmt.Sprintf("Выполнение команды: %s", cmd))
 
 	switch cmd {
 	case "logger":
+
+		c.logger.Info("Выполнена команда logger")
+
 	case "log":
+		c.logger.Info("Чтение лога пользователем")
 		c.Logread()
+
 	case "add":
-		if len(parts) < 4 {
-			err := "Формат: add \"название события\" \"дата и время\" \"приоритет\""
-			c.calendar.Notify(err)
-			c.logger.Error(err)
-			return
-		}
-		title := parts[1]
-		date := parts[2]
-		priority := events.Priority(parts[3])
-		e, err := c.calendar.AddEvent(title, date, priority)
-		if err != nil {
-			descriptErr := "Ошибка добавления: " + err.Error()
-			c.calendar.Notify(descriptErr)
-			c.logger.Error(descriptErr)
-		} else {
-			descriptAction := "Событие: " + e.Title + " добавлено"
-			c.calendar.Notify(descriptAction)
-			c.logger.Info(descriptAction)
-		}
+		c.handleEventAdd("add", parts)
+
 	case "update":
-		if len(parts) < 5 {
-			c.calendar.Notify("Формат: update \"id события\" \"название события\" \"дата и время\" \"приоритет\"")
-			return
-		}
-		key := parts[1]
-		title := parts[2]
-		date := parts[3]
-		priority := events.Priority(parts[4])
-		c.calendar.EditEvent(key, title, date, priority)
+		c.handleEventUpdate(parts)
 
 	case "remove":
-		if len(parts) < 2 {
-			c.calendar.Notify("Формат: remove \"id события\"")
-			return
-		}
-		key := parts[1]
-
-		c.calendar.DeleteEvent(key)
+		c.handleEventRemoval(parts)
 
 	case "list":
+		c.logger.Info("Запрос списка событий")
 		c.calendar.Notify("Список событий календаря:")
 		c.calendar.ShowEvents()
 		fmt.Println()
-	case "reminder":
-		if len(parts) < 4 {
-			c.logger.Error("Формат: Reminder \"id события\" \"сообщение\" \"дата и время\" ")
-			c.calendar.Notify("Формат: Reminder \"id события\" \"сообщение\" \"дата и время\" ")
 
-			return
-		}
-		key := parts[1]
-		msg := parts[2]
-		date := parts[3]
-		err := c.calendar.SetEventReminder(key, msg, date)
-		if err != nil {
-			c.calendar.Notify(err.Error())
-			c.logger.Error(err.Error())
-		}
+	case "reminder":
+		c.handleReminderSet(parts)
 
 	case "reminderRmv":
-		if len(parts) < 2 {
-			c.calendar.Notify("Формат: Reminder \"id события\"")
-			return
-		}
-		key := parts[1]
-		err := c.calendar.CancelEventReminder(key)
-		if err != nil {
-			c.logger.Error(err.Error())
-			c.calendar.Notify(err.Error())
-		}
+		c.handleReminderRemoval(parts)
+
 	case "help":
-
-		c.calendar.Notify("add - Добавить событие.\n Для добавления события введите команду в формате: add \"название события\" \"дата и время\" \"приоритет\" ")
-
-		c.calendar.Notify("list - Выводит список всех событий календаря. Команда используется без параметров. ")
-
-		c.calendar.Notify("remove - Удалить событие.\n Для удаления события введите команду в формате: remove \"id события\" ")
-
-		c.calendar.Notify("update - Изменить событие.\n Для изменения события введите команду в формате:  update \"id события\" \"название события\" \"дата и время\" \"приоритет\"")
-
-		c.calendar.Notify("reminder - Устанавливает уведомление для события.\n Для добавления события введите команду в формате: reminder \"id события\" \"сообщение\" \"дата и время\" ")
-
-		c.calendar.Notify("reminderRmv - Удаляет уведомление для события.\n Для добавления события введите команду в формате: reminderRmv \"id события\" ")
-
-		c.calendar.Notify("log - выводит действия пользователя")
-
-		c.calendar.Notify("exit - Выйти из программы. Команда используется без параметров")
-
-		c.calendar.Notify("help - Показать справку")
+		c.showHelp()
 
 	case "exit":
-		err := c.log.Logsave()
-		if err != nil {
-			fmt.Println("Ошибка сохранения лога:", err)
-		}
-		c.calendar.Save()
-		c.calendar.CloseNotify()
+		c.handleExit()
 
 	default:
-		c.calendar.Notify("Неизвестная команда:")
+		errMsg := fmt.Sprintf("Неизвестная команда: %s", cmd)
+		c.notifyUserAndLogError(errMsg)
 		c.calendar.Notify("Введите 'help' для просмотра списка команд")
 	}
 }
+
 func (c *Cmd) exitChecker(in string, breakline bool) bool {
 	if !breakline {
 		return false
@@ -215,6 +301,7 @@ func (c *Cmd) exitChecker(in string, breakline bool) bool {
 func (c *Cmd) completer(d prompt.Document) []prompt.Suggest {
 	suggestions := []prompt.Suggest{
 		{Text: "add", Description: "Добавить событие"},
+		{Text: "update", Description: "Изменить событие"},
 		{Text: "list", Description: "Показать все события"},
 		{Text: "remove", Description: "Удалить событие"},
 		{Text: "help", Description: "Показать справку"},
@@ -246,7 +333,6 @@ func (c *Cmd) Run() {
 	go func() {
 		for msg := range c.calendar.Notification {
 			fmt.Println(msg)
-			c.logger.Info(msg)
 			c.log.Logwrite(msg)
 		}
 	}()
