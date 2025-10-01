@@ -21,7 +21,11 @@ func main() {
 		return
 	}
 
-	cli := cmd.NewCmd(c, logjs)
+	cli, errCmd := cmd.NewCmd(c, logjs, "cmd.log")
+	if errCmd != nil {
+		fmt.Println("Ошибка: %w", errCmd)
+		return
+	}
 	cli.Run()
 	fmt.Println("=========================================================================")
 }

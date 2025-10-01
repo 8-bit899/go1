@@ -12,6 +12,7 @@ import (
 	"github.com/google/shlex"
 	"github.com/io893/calendar_app/calendar"
 	"github.com/io893/calendar_app/events"
+	"github.com/io893/calendar_app/logger"
 	"github.com/io893/calendar_app/storage"
 )
 
@@ -19,16 +20,24 @@ var mu sync.Mutex
 
 type Cmd struct {
 	calendar *calendar.Calendar
-	log      Log
+	log      *Log
+	logger   *logger.Logger
 }
 type Log struct {
 	msg     []string
 	storage storage.Store
 }
 
-func NewCmd(c *calendar.Calendar, s storage.Store) *Cmd {
-	return &Cmd{calendar: c,
-		log: *NewLog(s)}
+func NewCmd(c *calendar.Calendar, s storage.Store, logName string) (*Cmd, error) {
+	logger, err := logger.LoggerNew(logName)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка cmd: %w", err)
+	}
+	return &Cmd{
+		calendar: c,
+		log:      NewLog(s),
+		logger:   logger,
+	}, nil
 }
 func NewLog(s storage.Store) *Log {
 	return &Log{
@@ -79,7 +88,7 @@ func (c *Cmd) executor(input string) {
 	}
 
 	c.log.Logwrite("cmd: " + input)
-
+	c.logger.Info(input)
 	parts, err := shlex.Split(input)
 
 	if err != nil {
@@ -89,11 +98,14 @@ func (c *Cmd) executor(input string) {
 	cmd := strings.ToLower(parts[0])
 
 	switch cmd {
+	case "logger":
 	case "log":
 		c.Logread()
 	case "add":
 		if len(parts) < 4 {
-			c.calendar.Notify("Формат: add \"название события\" \"дата и время\" \"приоритет\"")
+			err := "Формат: add \"название события\" \"дата и время\" \"приоритет\""
+			c.calendar.Notify(err)
+			c.logger.Error(err)
 			return
 		}
 		title := parts[1]
@@ -101,9 +113,13 @@ func (c *Cmd) executor(input string) {
 		priority := events.Priority(parts[3])
 		e, err := c.calendar.AddEvent(title, date, priority)
 		if err != nil {
-			c.calendar.Notify("Ошибка добавления: " + err.Error())
+			descriptErr := "Ошибка добавления: " + err.Error()
+			c.calendar.Notify(descriptErr)
+			c.logger.Error(descriptErr)
 		} else {
-			c.calendar.Notify("Событие: " + e.Title + " добавлено")
+			descriptAction := "Событие: " + e.Title + " добавлено"
+			c.calendar.Notify(descriptAction)
+			c.logger.Info(descriptAction)
 		}
 	case "update":
 		if len(parts) < 5 {
@@ -131,7 +147,9 @@ func (c *Cmd) executor(input string) {
 		fmt.Println()
 	case "reminder":
 		if len(parts) < 4 {
+			c.logger.Error("Формат: Reminder \"id события\" \"сообщение\" \"дата и время\" ")
 			c.calendar.Notify("Формат: Reminder \"id события\" \"сообщение\" \"дата и время\" ")
+
 			return
 		}
 		key := parts[1]
@@ -140,6 +158,7 @@ func (c *Cmd) executor(input string) {
 		err := c.calendar.SetEventReminder(key, msg, date)
 		if err != nil {
 			c.calendar.Notify(err.Error())
+			c.logger.Error(err.Error())
 		}
 
 	case "reminderRmv":
@@ -150,6 +169,7 @@ func (c *Cmd) executor(input string) {
 		key := parts[1]
 		err := c.calendar.CancelEventReminder(key)
 		if err != nil {
+			c.logger.Error(err.Error())
 			c.calendar.Notify(err.Error())
 		}
 	case "help":
@@ -214,7 +234,7 @@ func (c *Cmd) Run() {
 	}()
 	err := c.log.Logload()
 	if err != nil {
-		fmt.Println("Ошибка загрузки лога:", err)
+		fmt.Println("Файла с записями лога нет. Создали новый:", err)
 	}
 	p := prompt.New(
 		c.executor,
@@ -226,7 +246,7 @@ func (c *Cmd) Run() {
 	go func() {
 		for msg := range c.calendar.Notification {
 			fmt.Println(msg)
-
+			c.logger.Info(msg)
 			c.log.Logwrite(msg)
 		}
 	}()
