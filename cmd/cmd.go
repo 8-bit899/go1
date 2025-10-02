@@ -99,20 +99,15 @@ func (c *Cmd) executor(input string) {
 	c.HandleCommand(cmd, parts)
 }
 
-func (c *Cmd) notifyUserAndLogError(message string) {
+func (c *Cmd) notifyUserAndLog(message string, log func(string)) {
 	c.calendar.Notify(message)
-	c.logger.Error(message)
-}
+	log(message)
 
-func (c *Cmd) notifyUserAndLogInfo(message string) {
-	c.calendar.Notify(message)
-	c.logger.Info(message)
 }
-
 func (c *Cmd) validateArgs(parts []string, requiredCount int, format string) bool {
 	if len(parts) < requiredCount {
 		errMsg := fmt.Sprintf("Неверное количество аргументов. Формат: %s", format)
-		c.notifyUserAndLogError(errMsg)
+		c.notifyUserAndLog(errMsg, c.logger.Error)
 		return false
 	}
 	return true
@@ -130,9 +125,9 @@ func (c *Cmd) handleEventAdd(operation string, parts []string) {
 
 	e, err := c.calendar.AddEvent(title, date, priority)
 	if err != nil {
-		c.notifyUserAndLogError(fmt.Sprintf("Ошибка %s: %v", operation, err))
+		c.notifyUserAndLog(fmt.Sprintf("Ошибка %s: %v", operation, err), c.logger.Error)
 	} else {
-		c.notifyUserAndLogInfo(fmt.Sprintf("Событие '%s' %s", e.Title, getOperationPastTense(operation)))
+		c.notifyUserAndLog(fmt.Sprintf("Событие '%s' %s", e.Title, getOperationPastTense(operation)), c.logger.Info)
 	}
 }
 
@@ -148,9 +143,9 @@ func (c *Cmd) handleEventUpdate(parts []string) {
 
 	err := c.calendar.EditEvent(key, title, date, priority)
 	if err != nil {
-		c.notifyUserAndLogError(fmt.Sprintf("Ошибка обновления: %v", err))
+		c.notifyUserAndLog(fmt.Sprintf("Ошибка обновления: %v", err), c.logger.Error)
 	} else {
-		c.notifyUserAndLogInfo(fmt.Sprintf("Событие с ID %s обновлено", key))
+		c.notifyUserAndLog(fmt.Sprintf("Событие с ID %s обновлено", key), c.logger.Info)
 	}
 }
 
@@ -162,9 +157,9 @@ func (c *Cmd) handleEventRemoval(parts []string) {
 	key := parts[1]
 	err := c.calendar.DeleteEvent(key)
 	if err != nil {
-		c.notifyUserAndLogError(fmt.Sprintf("Ошибка удаления: %v", err))
+		c.notifyUserAndLog(fmt.Sprintf("Ошибка удаления: %v", err), c.logger.Error)
 	} else {
-		c.notifyUserAndLogInfo(fmt.Sprintf("Событие с ID %s удалено", key))
+		c.notifyUserAndLog(fmt.Sprintf("Событие с ID %s удалено", key), c.logger.Info)
 	}
 }
 
@@ -179,9 +174,9 @@ func (c *Cmd) handleReminderSet(parts []string) {
 
 	err := c.calendar.SetEventReminder(key, msg, date)
 	if err != nil {
-		c.notifyUserAndLogError(fmt.Sprintf("Ошибка установки напоминания: %v", err))
+		c.notifyUserAndLog(fmt.Sprintf("Ошибка установки напоминания: %v", err), c.logger.Error)
 	} else {
-		c.notifyUserAndLogInfo(fmt.Sprintf("Напоминание для события %s установлено", key))
+		c.notifyUserAndLog(fmt.Sprintf("Напоминание для события %s установлено", key), c.logger.Reminder)
 	}
 }
 
@@ -193,9 +188,9 @@ func (c *Cmd) handleReminderRemoval(parts []string) {
 	key := parts[1]
 	err := c.calendar.CancelEventReminder(key)
 	if err != nil {
-		c.notifyUserAndLogError(fmt.Sprintf("Ошибка удаления напоминания: %v", err))
+		c.notifyUserAndLog(fmt.Sprintf("Ошибка удаления напоминания: %v", err), c.logger.Error)
 	} else {
-		c.notifyUserAndLogInfo(fmt.Sprintf("Напоминание для события %s удалено", key))
+		c.notifyUserAndLog(fmt.Sprintf("Напоминание для события %s удалено", key), c.logger.Reminder)
 	}
 }
 
@@ -230,6 +225,11 @@ func (c *Cmd) handleExit() {
 	}
 
 	c.calendar.CloseNotify()
+	err = c.logger.Close()
+	if err != nil {
+		c.notifyUserAndLog(fmt.Sprintf("Ошибка сохранения файла логера: %v", err), c.logger.Error)
+		fmt.Println("Ошибка сохранения файла логера:", err)
+	}
 	c.logger.Info("Приложение завершило работу")
 }
 
@@ -286,7 +286,7 @@ func (c *Cmd) HandleCommand(cmd string, parts []string) {
 
 	default:
 		errMsg := fmt.Sprintf("Неизвестная команда: %s", cmd)
-		c.notifyUserAndLogError(errMsg)
+		c.notifyUserAndLog(errMsg, c.logger.Error)
 		c.calendar.Notify("Введите 'help' для просмотра списка команд")
 	}
 }

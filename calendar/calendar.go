@@ -12,14 +12,14 @@ import (
 type Calendar struct {
 	calendarEvents map[string]*events.Event
 	storage        storage.Store
-	Notification   chan string
+	Notification   chan string `json:"-"`
 }
 
 func (c *Calendar) Save() error {
 	data, err := json.Marshal(c.calendarEvents)
 	if err != nil {
 
-		return err
+		return fmt.Errorf("error marshal %w", err)
 	}
 	err = c.storage.Save(data)
 	return err
@@ -91,7 +91,7 @@ func (c *Calendar) SetEventReminder(key string, msg string, at string) error {
 		if err != nil {
 			return err
 		}
-		c.Notify(events.ReminderAdd)
+
 		return nil
 	}
 	return fmt.Errorf(events.ReminderNotAdd+"%w", errors.New(events.EventNotFoundMessage))

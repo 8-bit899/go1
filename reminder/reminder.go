@@ -9,8 +9,8 @@ type Reminder struct {
 	Message string
 	At      time.Time
 	Sent    bool
-	Timer   *time.Timer
-	Notify  func(string)
+	Timer   *time.Timer  `json:"-"`
+	Notify  func(string) `json:"-"`
 }
 
 func NewReminder(message string, at time.Time, notify func(string)) *Reminder {

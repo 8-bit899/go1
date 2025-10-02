@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 )
 
 const (
@@ -11,6 +12,8 @@ const (
 	prefixError    = "ERROR: "
 	prefixReminder = "REMINDER: "
 )
+
+var mu sync.Mutex
 
 type Logger struct {
 	infoLogger     *log.Logger
@@ -34,12 +37,18 @@ func LoggerNew(filename string) (*Logger, error) {
 
 }
 func (l *Logger) Info(msg string) {
+	mu.Lock()
+	defer mu.Unlock()
 	l.infoLogger.Output(2, msg)
 }
 func (l *Logger) Error(msg string) {
+	mu.Lock()
+	defer mu.Unlock()
 	l.errorLogger.Output(2, msg)
 }
 func (l *Logger) Reminder(msg string) {
+	mu.Lock()
+	defer mu.Unlock()
 	l.reminderLogger.Output(2, msg)
 }
 func (l *Logger) Close() error {

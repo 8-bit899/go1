@@ -18,7 +18,7 @@ func main() {
 	err := c.Load()
 	if err != nil {
 		fmt.Println("Ошибка загрузки данных:", err)
-		return
+
 	}
 
 	cli, errCmd := cmd.NewCmd(c, logjs, "cmd.log")
